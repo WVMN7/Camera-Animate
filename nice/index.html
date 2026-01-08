@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Hand Gesture Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0 40px;
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00c9ff, #92fe9d);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .left-panel {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .right-panel {
+            flex: 2;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #00c9ff;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(0, 201, 255, 0.3);
+        }
+        
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 25px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+        }
+        
+        #videoElement {
+            width: 100%;
+            height: auto;
+            display: block;
+            transform: scaleX(-1); /* Mirror effect */
+        }
+        
+        .canvas-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .gesture-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .gesture-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .gesture-card.active {
+            background: rgba(0, 201, 255, 0.2);
+            border-color: #00c9ff;
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 201, 255, 0.3);
+        }
+        
+        .gesture-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .gesture-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .gesture-action {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 25px;
+        }
+        
+        button {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #00c9ff, #0083b0);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 150px;
+            font-size: 1rem;
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 15px rgba(0, 201, 255, 0.4);
+        }
+        
+        button#pauseBtn {
+            background: linear-gradient(90deg, #ff416c, #ff4b2b);
+        }
+        
+        button#calibrateBtn {
+            background: linear-gradient(90deg, #92fe9d, #00c9ff);
+        }
+        
+        .status-container {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+        }
+        
+        .status-line {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 12px;
+            background: #ff416c;
+        }
+        
+        .status-indicator.active {
+            background: #92fe9d;
+            box-shadow: 0 0 10px #92fe9d;
+        }
+        
+        .demo-content {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+        
+        .demo-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .demo-item.active {
+            background: rgba(0, 201, 255, 0.2);
+            border-left: 5px solid #00c9ff;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 30px;
+        }
+        
+        .calibration-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+            padding: 20px;
+        }
+        
+        .calibration-box {
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .calibration-steps {
+            text-align: left;
+            margin: 30px 0;
+            padding-left: 20px;
+        }
+        
+        .calibration-steps li {
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .gesture-info {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Hand Gesture Control</h1>
+            <p class="subtitle">Control this website using real-time hand gestures captured through your webcam. No data is stored or sent to servers - all processing happens locally on your device.</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="left-panel">
+                <h2 class="section-title">Camera & Controls</h2>
+                
+                <div class="camera-container">
+                    <video id="videoElement" autoplay playsinline></video>
+                    <canvas id="canvasOverlay" class="canvas-overlay"></canvas>
+                </div>
+                
+                <div class="controls">
+                    <button id="startBtn">Start Camera</button>
+                    <button id="calibrateBtn">Calibrate</button>
+                    <button id="pauseBtn">Pause Detection</button>
+                </div>
+                
+                <div class="status-container">
+                    <h3 class="section-title">System Status</h3>
+                    <div class="status-line">
+                        <div class="status-indicator" id="cameraStatus"></div>
+                        <span>Camera: <span id="cameraStatusText">Off</span></span>
+                    </div>
+                    <div class="status-line">
+                        <div class="status-indicator" id="handStatus"></div>
+                        <span>Hand Detection: <span id="handStatusText">No hand detected</span></span>
+                    </div>
+                    <div class="status-line">
+                        <div class="status-indicator" id="gestureStatus"></div>
+                        <span>Gesture Recognition: <span id="gestureStatusText">Idle</span></span>
+                    </div>
+                    <div class="status-line">
+                        <div class="status-indicator" id="processingStatus"></div>
+                        <span>Processing: <span id="processingStatusText">Local (Privacy Protected)</span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="right-panel">
+                <h2 class="section-title">Gesture Guide</h2>
+                <p>Perform these gestures in front of your camera to control the website:</p>
+                
+                <div class="gesture-info">
+                    <div class="gesture-card" id="gestureOpenPalm">
+                        <span class="gesture-icon">🖐️</span>
+                        <div class="gesture-name">Open Palm</div>
+                        <div class="gesture-action">Scroll Down</div>
+                    </div>
+                    
+                    <div class="gesture-card" id="gestureClosedFist">
+                        <span class="gesture-icon">✊</span>
+                        <div class="gesture-name">Closed Fist</div>
+                        <div class="gesture-action">Scroll Up</div>
+                    </div>
+                    
+                    <div class="gesture-card" id="gesturePointRight">
+                        <span class="gesture-icon">👉</span>
+                        <div class="gesture-name">Point Right</div>
+                        <div class="gesture-action">Next Page</div>
+                    </div>
+                    
+                    <div class="gesture-card" id="gesturePointLeft">
+                        <span class="gesture-icon">👈</span>
+                        <div class="gesture-name">Point Left</div>
+                        <div class="gesture-action">Previous Page</div>
+                    </div>
+                    
+                    <div class="gesture-card" id="gestureTwoFingers">
+                        <span class="gesture-icon">✌️</span>
+                        <div class="gesture-name">Two Fingers Up</div>
+                        <div class="gesture-action">Click / Select</div>
+                    </div>
+                    
+                    <div class="gesture-card" id="gestureHandRaised">
+                        <span class="gesture-icon">✋</span>
+                        <div class="gesture-name">Hand Raised</div>
+                        <div class="gesture-action">Pause Interaction</div>
+                    </div>
+                </div>
+                
+                <h2 class="section-title" style="margin-top: 30px;">Demo Content</h2>
+                <div class="demo-content" id="demoContent">
+                    <div class="demo-item" id="demoItem1">
+                        <h3>Welcome to Gesture Control Demo</h3>
+                        <p>Use hand gestures to interact with this content. Try scrolling up and down with open palm and closed fist gestures.</p>
+                    </div>
+                    <div class="demo-item" id="demoItem2">
+                        <h3>Gesture Navigation</h3>
+                        <p>Point left or right to navigate between pages. Raise your hand to pause gesture detection temporarily.</p>
+                    </div>
+                    <div class="demo-item" id="demoItem3">
+                        <h3>Selection with Gestures</h3>
+                        <p>Show two fingers up to "click" or select items. Try it on these demo boxes to highlight them.</p>
+                    </div>
+                    <div class="demo-item" id="demoItem4">
+                        <h3>Privacy First Design</h3>
+                        <p>All video processing happens locally in your browser. No images or video are sent to any server.</p>
+                    </div>
+                    <div class="demo-item" id="demoItem5">
+                        <h3>Optimized Performance</h3>
+                        <p>The system uses TensorFlow.js and MediaPipe for fast, smooth gesture recognition with minimal latency.</p>
+                    </div>
+                    <div class="demo-item" id="demoItem6">
+                        <h3>Calibration Process</h3>
+                        <p>For best results, use the calibration feature to adjust to your lighting conditions and hand size.</p>
+                    </div>
+                    <div class="demo-item" id="demoItem7">
+                        <h3>Compatibility</h3>
+                        <p>Works on modern desktop browsers with camera access. Chrome, Firefox, and Edge are recommended.</p>
+                    </div>
+                    <div class="demo-item" id="demoItem8">
+                        <h3>Future Enhancements</h3>
+                        <p>More gestures and custom gesture mapping are planned for future versions of this system.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>AI Hand Gesture Control System | All processing is done locally on your device | No data is stored or transmitted</p>
+        </footer>
+    </div>
+    
+    <!-- Calibration Overlay -->
+    <div class="calibration-overlay" id="calibrationOverlay" style="display: none;">
+        <div class="calibration-box">
+            <h2>Calibration Process</h2>
+            <p>For optimal gesture recognition, please follow these steps:</p>
+            
+            <ol class="calibration-steps">
+                <li>Position yourself so your hand is clearly visible in the camera preview.</li>
+                <li>Make sure you have good lighting - avoid strong backlight.</li>
+                <li>Hold your hand about 30-50 cm from the camera.</li>
+                <li>Perform each gesture as shown in the guide when prompted.</li>
+                <li>The system will adapt to your hand size and lighting conditions.</li>
+            </ol>
+            
+            <div style="margin: 30px 0;">
+                <div id="calibrationStep">Step 1/6: Show your OPEN PALM to the camera</div>
+                <div id="calibrationProgress" style="margin-top: 15px; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden;">
+                    <div id="calibrationProgressBar" style="height: 100%; width: 0%; background: #00c9ff; transition: width 0.3s;"></div>
+                </div>
+            </div>
+            
+            <button id="startCalibrationBtn">Start Calibration</button>
+            <button id="skipCalibrationBtn" style="margin-top: 15px; background: rgba(255,255,255,0.1);">Skip Calibration</button>
+        </div>
+    </div>
+    
+    <script>
+        // DOM elements
+        const videoElement = document.getElementById('videoElement');
+        const canvasOverlay = document.getElementById('canvasOverlay');
+        const ctx = canvasOverlay.getContext('2d');
+        
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const calibrateBtn = document.getElementById('calibrateBtn');
+        const startCalibrationBtn = document.getElementById('startCalibrationBtn');
+        const skipCalibrationBtn = document.getElementById('skipCalibrationBtn');
+        const calibrationOverlay = document.getElementById('calibrationOverlay');
+        
+        // Status elements
+        const cameraStatus = document.getElementById('cameraStatus');
+        const cameraStatusText = document.getElementById('cameraStatusText');
+        const handStatus = document.getElementById('handStatus');
+        const handStatusText = document.getElementById('handStatusText');
+        const gestureStatus = document.getElementById('gestureStatus');
+        const gestureStatusText = document.getElementById('gestureStatusText');
+        
+        // Gesture card elements
+        const gestureCards = {
+            openPalm: document.getElementById('gestureOpenPalm'),
+            closedFist: document.getElementById('gestureClosedFist'),
+            pointRight: document.getElementById('gesturePointRight'),
+            pointLeft: document.getElementById('gesturePointLeft'),
+            twoFingers: document.getElementById('gestureTwoFingers'),
+            handRaised: document.getElementById('gestureHandRaised')
+        };
+        
+        // Demo content elements
+        const demoContent = document.getElementById('demoContent');
+        const demoItems = document.querySelectorAll('.demo-item');
+        
+        // System state
+        let isCameraOn = false;
+        let isDetectionActive = true;
+        let isCalibrating = false;
+        let currentGesture = null;
+        let lastGestureTime = 0;
+        let handLandmarks = null;
+        let calibrationStep = 0;
+        let calibrationData = {};
+        
+        // Constants
+        const GESTURE_COOLDOWN = 500; // ms between gesture actions
+        const CALIBRATION_STEPS = 6;
+        
+        // Initialize MediaPipe Hands
+        const hands = new Hands({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }
+        });
+        
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        
+        hands.onResults(onHandResults);
+        
+        // Start camera function
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: "user"
+                    },
+                    audio: false
+                });
+                
+                videoElement.srcObject = stream;
+                isCameraOn = true;
+                updateStatus(true, "camera", "Active");
+                
+                // Set canvas size to match video
+                videoElement.addEventListener('loadedmetadata', () => {
+                    canvasOverlay.width = videoElement.videoWidth;
+                    canvasOverlay.height = videoElement.videoHeight;
+                });
+                
+                // Start sending frames to MediaPipe
+                const camera = new Camera(videoElement, {
+                    onFrame: async () => {
+                        if (isDetectionActive) {
+                            await hands.send({image: videoElement});
+                        }
+                    },
+                    width: 640,
+                    height: 480
+                });
+                
+                camera.start();
+                startBtn.textContent = "Camera Active";
+                startBtn.style.background = "linear-gradient(90deg, #92fe9d, #00c9ff)";
+                
+            } catch (error) {
+                console.error("Error accessing camera:", error);
+                alert("Could not access camera. Please ensure you've granted camera permissions.");
+                updateStatus(false, "camera", "Error");
+            }
+        }
+        
+        // Process hand results from MediaPipe
+        function onHandResults(results) {
+            ctx.clearRect(0, 0, canvasOverlay.width, canvasOverlay.height);
+            
+            // Draw camera feed (mirrored)
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.drawImage(results.image, -canvasOverlay.width, 0, canvasOverlay.width, canvasOverlay.height);
+            ctx.restore();
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                handLandmarks = results.multiHandLandmarks[0];
+                updateStatus(true, "hand", "Hand detected");
+                
+                // Draw hand landmarks
+                drawHandLandmarks(handLandmarks);
+                
+                // Recognize gesture
+                if (isDetectionActive && !isCalibrating) {
+                    recognizeGesture(handLandmarks);
+                } else if (isCalibrating) {
+                    processCalibrationStep(handLandmarks);
+                }
+            } else {
+                handLandmarks = null;
+                updateStatus(false, "hand", "No hand detected");
+                currentGesture = null;
+                updateGestureUI(null);
+            }
+        }
+        
+        // Draw hand landmarks on canvas
+        function drawHandLandmarks(landmarks) {
+            ctx.strokeStyle = '#00c9ff';
+            ctx.fillStyle = '#ff416c';
+            ctx.lineWidth = 2;
+            
+            // Draw connections
+            const connections = [
+                [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
+                [0, 5], [5, 6], [6, 7], [7, 8], // Index finger
+                [0, 9], [9, 10], [10, 11], [11, 12], // Middle finger
+                [0, 13], [13, 14], [14, 15], [15, 16], // Ring finger
+                [0, 17], [17, 18], [18, 19], [19, 20], // Pinky
+                [5, 9], [9, 13], [13, 17] // Palm
+            ];
+            
+            // Scale landmarks to canvas
+            const scaleX = canvasOverlay.width;
+            const scaleY = canvasOverlay.height;
+            
+            // Draw connections
+            connections.forEach(connection => {
+                const [start, end] = connection;
+                const x1 = (1 - landmarks[start].x) * scaleX;
+                const y1 = landmarks[start].y * scaleY;
+                const x2 = (1 - landmarks[end].x) * scaleX;
+                const y2 = landmarks[end].y * scaleY;
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            });
+            
+            // Draw landmarks
+            landmarks.forEach(landmark => {
+                const x = (1 - landmark.x) * scaleX;
+                const y = landmark.y * scaleY;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+        
+        // Recognize gesture from hand landmarks
+        function recognizeGesture(landmarks) {
+            // Get key points
+            const thumbTip = landmarks[4];
+            const indexTip = landmarks[8];
+            const middleTip = landmarks[12];
+            const ringTip = landmarks[16];
+            const pinkyTip = landmarks[20];
+            const wrist = landmarks[0];
+            
+            // Calculate distances and positions
+            const indexMiddleDist = Math.sqrt(
+                Math.pow(indexTip.x - middleTip.x, 2) + 
+                Math.pow(indexTip.y - middleTip.y, 2)
+            );
+            
+            const middleRingDist = Math.sqrt(
+                Math.pow(middleTip.x - ringTip.x, 2) + 
+                Math.pow(middleTip.y - ringTip.y, 2)
+            );
+            
+            const ringPinkyDist = Math.sqrt(
+                Math.pow(ringTip.x - pinkyTip.x, 2) + 
+                Math.pow(ringTip.y - pinkyTip.y, 2)
+            );
+            
+            // Check for open palm (fingers extended)
+            const fingersExtended = 
+                indexTip.y < landmarks[6].y &&  // Index finger extended
+                middleTip.y < landmarks[10].y && // Middle finger extended
+                ringTip.y < landmarks[14].y &&   // Ring finger extended
+                pinkyTip.y < landmarks[18].y;    // Pinky extended
+            
+            // Check for closed fist (fingers curled)
+            const fingersClosed = 
+                indexTip.y > landmarks[5].y &&   // Index finger curled
+                middleTip.y > landmarks[9].y &&  // Middle finger curled
+                ringTip.y > landmarks[13].y &&   // Ring finger curled
+                pinkyTip.y > landmarks[17].y;    // Pinky curled
+            
+            // Check for pointing (only index finger extended)
+            const pointingRight = 
+                indexTip.y < landmarks[6].y &&   // Index finger extended
+                middleTip.y > landmarks[10].y && // Middle finger curled
+                ringTip.y > landmarks[14].y &&   // Ring finger curled
+                pinkyTip.y > landmarks[18].y &&  // Pinky curled
+                indexTip.x < wrist.x;            // Hand pointing right (mirrored)
+            
+            const pointingLeft = 
+                indexTip.y < landmarks[6].y &&   // Index finger extended
+                middleTip.y > landmarks[10].y && // Middle finger curled
+                ringTip.y > landmarks[14].y &&   // Ring finger curled
+                pinkyTip.y > landmarks[18].y &&  // Pinky curled
+                indexTip.x > wrist.x;            // Hand pointing left (mirrored)
+            
+            // Check for two fingers up (peace sign)
+            const twoFingersUp = 
+                indexTip.y < landmarks[6].y &&   // Index finger extended
+                middleTip.y < landmarks[10].y && // Middle finger extended
+                ringTip.y > landmarks[14].y &&   // Ring finger curled
+                pinkyTip.y > landmarks[18].y &&  // Pinky curled
+                indexMiddleDist < 0.1;           // Fingers close together
+            
+            // Check for hand raised (all fingers extended, hand above wrist)
+            const handRaised = 
+                fingersExtended &&
+                wrist.y > indexTip.y;  // Wrist below fingertips
+            
+            // Determine gesture
+            let detectedGesture = null;
+            
+            if (handRaised) {
+                detectedGesture = "handRaised";
+            } else if (fingersExtended && !handRaised) {
+                detectedGesture = "openPalm";
+            } else if (fingersClosed) {
+                detectedGesture = "closedFist";
+            } else if (pointingRight) {
+                detectedGesture = "pointRight";
+            } else if (pointingLeft) {
+                detectedGesture = "pointLeft";
+            } else if (twoFingersUp) {
+                detectedGesture = "twoFingers";
+            }
+            
+            // Update gesture UI and perform action
+            if (detectedGesture && detectedGesture !== currentGesture) {
+                currentGesture = detectedGesture;
+                updateGestureUI(detectedGesture);
+                
+                // Apply cooldown to prevent rapid firing
+                const now = Date.now();
+                if (now - lastGestureTime > GESTURE_COOLDOWN) {
+                    performGestureAction(detectedGesture);
+                    lastGestureTime = now;
+                }
+            }
+            
+            updateStatus(true, "gesture", detectedGesture ? `Detected: ${detectedGesture}` : "Analyzing...");
+        }
+        
+        // Update gesture UI feedback
+        function updateGestureUI(gestureName) {
+            // Remove active class from all gesture cards
+            Object.values(gestureCards).forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            // Add active class to current gesture card
+            if (gestureName && gestureCards[gestureName]) {
+                gestureCards[gestureName].classList.add('active');
+            }
+        }
+        
+        // Perform action based on gesture
+        function performGestureAction(gesture) {
+            switch(gesture) {
+                case 'openPalm':
+                    // Scroll down
+                    demoContent.scrollBy({ top: 100, behavior: 'smooth' });
+                    highlightDemoItem(Math.min(demoItems.length - 1, getCurrentDemoItem() + 1));
+                    break;
+                    
+                case 'closedFist':
+                    // Scroll up
+                    demoContent.scrollBy({ top: -100, behavior: 'smooth' });
+                    highlightDemoItem(Math.max(0, getCurrentDemoItem() - 1));
+                    break;
+                    
+                case 'pointRight':
+                    // Simulate next page (scroll to next section)
+                    demoContent.scrollBy({ top: 300, behavior: 'smooth' });
+                    highlightDemoItem(Math.min(demoItems.length - 1, getCurrentDemoItem() + 2));
+                    break;
+                    
+                case 'pointLeft':
+                    // Simulate previous page (scroll to previous section)
+                    demoContent.scrollBy({ top: -300, behavior: 'smooth' });
+                    highlightDemoItem(Math.max(0, getCurrentDemoItem() - 2));
+                    break;
+                    
+                case 'twoFingers':
+                    // Click/select - highlight current item
+                    const currentItem = getCurrentDemoItem();
+                    if (currentItem >= 0) {
+                        demoItems[currentItem].classList.add('active');
+                        setTimeout(() => {
+                            demoItems[currentItem].classList.remove('active');
+                        }, 1000);
+                    }
+                    break;
+                    
+                case 'handRaised':
+                    // Pause interaction
+                    toggleDetection();
+                    break;
+            }
+        }
+        
+        // Get current demo item index based on scroll position
+        function getCurrentDemoItem() {
+            const scrollPos = demoContent.scrollTop;
+            const itemHeight = demoContent.scrollHeight / demoItems.length;
+            return Math.floor(scrollPos / itemHeight);
+        }
+        
+        // Highlight a specific demo item
+        function highlightDemoItem(index) {
+            demoItems.forEach((item, i) => {
+                item.classList.toggle('active', i === index);
+            });
+        }
+        
+        // Update system status
+        function updateStatus(isActive, type, text) {
+            switch(type) {
+                case 'camera':
+                    cameraStatus.className = `status-indicator ${isActive ? 'active' : ''}`;
+                    cameraStatusText.textContent = text;
+                    break;
+                case 'hand':
+                    handStatus.className = `status-indicator ${isActive ? 'active' : ''}`;
+                    handStatusText.textContent = text;
+                    break;
+                case 'gesture':
+                    gestureStatus.className = `status-indicator ${isActive ? 'active' : ''}`;
+                    gestureStatusText.textContent = text;
+                    break;
+            }
+        }
+        
+        // Toggle gesture detection
+        function toggleDetection() {
+            isDetectionActive = !isDetectionActive;
+            pauseBtn.textContent = isDetectionActive ? "Pause Detection" : "Resume Detection";
+            pauseBtn.style.background = isDetectionActive ? 
+                "linear-gradient(90deg, #ff416c, #ff4b2b)" : 
+                "linear-gradient(90deg, #92fe9d, #00c9ff)";
+            
+            updateStatus(isDetectionActive, "gesture", isDetectionActive ? "Active" : "Paused");
+            
+            if (!isDetectionActive) {
+                updateGestureUI(null);
+            }
+        }
+        
+        // Start calibration process
+        function startCalibration() {
+            isCalibrating = true;
+            calibrationStep = 0;
+            calibrationData = {};
+            calibrationOverlay.style.display = 'flex';
+            updateCalibrationStep();
+        }
+        
+        // Update calibration step UI
+        function updateCalibrationStep() {
+            const stepTexts = [
+                "Step 1/6: Show your OPEN PALM to the camera",
+                "Step 2/6: Make a CLOSED FIST",
+                "Step 3/6: POINT RIGHT with your index finger",
+                "Step 4/6: POINT LEFT with your index finger",
+                "Step 5/6: Show TWO FINGERS UP (peace sign)",
+                "Step 6/6: RAISE YOUR HAND (palm facing camera)"
+            ];
+            
+            const progress = (calibrationStep / CALIBRATION_STEPS) * 100;
+            
+            document.getElementById('calibrationStep').textContent = stepTexts[calibrationStep];
+            document.getElementById('calibrationProgressBar').style.width = `${progress}%`;
+            
+            if (calibrationStep >= CALIBRATION_STEPS) {
+                finishCalibration();
+            }
+        }
+        
+        // Process calibration for current step
+        function processCalibrationStep(landmarks) {
+            // In a real implementation, you would capture sample data for each gesture
+            // For this demo, we'll simulate calibration by waiting a few seconds
+            
+            setTimeout(() => {
+                calibrationStep++;
+                updateCalibrationStep();
+            }, 2000);
+        }
+        
+        // Finish calibration
+        function finishCalibration() {
+            isCalibrating = false;
+            calibrationOverlay.style.display = 'none';
+            alert("Calibration complete! The system is now optimized for your hand and lighting conditions.");
+        }
+        
+        // Event listeners
+        startBtn.addEventListener('click', startCamera);
+        pauseBtn.addEventListener('click', toggleDetection);
+        calibrateBtn.addEventListener('click', startCalibration);
+        startCalibrationBtn.addEventListener('click', updateCalibrationStep);
+        skipCalibrationBtn.addEventListener('click', () => {
+            isCalibrating = false;
+            calibrationOverlay.style.display = 'none';
+        });
+        
+        // Initialize demo content highlighting
+        demoContent.addEventListener('scroll', () => {
+            const currentItem = getCurrentDemoItem();
+            highlightDemoItem(currentItem);
+        });
+        
+        // Initial status update
+        updateStatus(false, "camera", "Off");
+        updateStatus(false, "hand", "No hand detected");
+        updateStatus(false, "gesture", "Idle");
+    </script>
+</body>
+</html>
